@@ -1,14 +1,26 @@
-﻿using Core.Tokens.Types;
+﻿using System.Diagnostics.CodeAnalysis;
+using NEG.CTF2.Core.Tokens.Types;
 
-namespace Core.Diagnostics;
+namespace NEG.CTF2.Core.Diagnostics;
 
-internal readonly struct DiagnosticResult : IDiagnosticResult
+public readonly struct DiagnosticResult : IDiagnosticResult
 {
-	public DiagnosticResult(TokenType _type, string _reason)
+	[SetsRequiredMembers]
+	public DiagnosticResult(TokenType _type, string _reason, string _value, int _position)
 	{
 		Type = _type;
+		Value = _value;
 		Reason = _reason;
+		Position = _position;
 	}
-	public TokenType Type { get; }
-	public string Reason { get; }
+	public required TokenType Type { get; init; }
+	public required string Reason { get; init; }
+	public required string Value { get; init; }
+	public required int Position { get; init; }
+
+	public override string ToString()
+	{
+		return
+			$"{{\n    Type: {Type}\n    Reason: {Reason}\n    Value: {Value}\n}}\n";
+	}
 }

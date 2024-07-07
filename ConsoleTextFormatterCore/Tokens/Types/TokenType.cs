@@ -1,13 +1,29 @@
-﻿namespace Core.Tokens.Types;
+﻿namespace NEG.CTF2.Core.Tokens.Types;
 
-internal enum TokenType
+public enum TokenType
 {
+	// Tokens
 	Whitespace,
+	Colon,
+	Comma,
+	SquareOpenBracket,
+	SquareCloseBracket,
 
 	Numeric,
 	Literal,
 
+	EndOfFile,
+
 	Invalid,
 
-	EndOfFile
+	// Binary Operations (Tmp)
+	Addition,
+	Subtraction,
+	Multiplication,
+	Division,
+
+	// Expressions
+	BinaryExpression,
+	LiteralExpression,
+	NumericExpression,
 }
