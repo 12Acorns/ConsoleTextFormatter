@@ -25,26 +25,31 @@ public class Evaluator
 
 	internal int EvaluateExpression(ExpressionSyntax _node)
 	{
-		if(_node is NumericSyntaxExpression _numericSyntax)
+		switch(_node)
 		{
-			return Convert.ToInt32(_numericSyntax.Token.Value!);
-		}
-
-		if(_node is BinaryExpression _binaryExpression)
-		{
-			var _left = EvaluateExpression(_binaryExpression.Left);
-			var _right = EvaluateExpression(_binaryExpression.Right);
-
-			return _binaryExpression.Operator.Type switch
+			case NumericSyntaxExpression _numericSyntax:
 			{
-				TokenType.Addition => _left + _right,
-				TokenType.Subtraction => _left - _right,
-				TokenType.Multiplication => _left * _right,
-				TokenType.Division => _left / _right,
+				return Convert.ToInt32(_numericSyntax.Token.Value!);
+			}
+			case BinaryExpression _binaryExpression:
+			{
+				var _left = EvaluateExpression(_binaryExpression.Left);
+				var _right = EvaluateExpression(_binaryExpression.Right);
 
-				_ => throw new Exception($"Unexpected binary operation: {_binaryExpression.Operator.Type}")
-			};
+				return _binaryExpression.Operator.Type switch
+				{
+					TokenType.Addition => _left + _right,
+					TokenType.Subtraction => _left - _right,
+					TokenType.Multiplication => _left * _right,
+					TokenType.Division => _left / _right,
+
+					_ => throw new Exception($"Unexpected binary operation: {_binaryExpression.Operator.Type}")
+				};
+			}
+			default:
+			{
+				throw new Exception($"Unexpected node: {_node.Type}");
+			}
 		}
-		throw new Exception($"Unexpected node: {_node.Type}");
 	}
 }
