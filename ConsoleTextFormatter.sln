@@ -12,8 +12,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreTests", "ConsoleTextFor
 		{AC41BB86-1857-47A2-A765-F22E87959322} = {AC41BB86-1857-47A2-A765-F22E87959322}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Visualization", "Visualization\Visualization.csproj", "{1E48E164-9EBA-41D7-A5A8-98F5C339DB53}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{25F9CD6F-3B18-4232-8D9C-29A378473E4E}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -37,10 +35,6 @@ Global
 		{D1F0A4F7-E57C-4893-A902-D22AFF6E02C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D1F0A4F7-E57C-4893-A902-D22AFF6E02C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D1F0A4F7-E57C-4893-A902-D22AFF6E02C2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1E48E164-9EBA-41D7-A5A8-98F5C339DB53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1E48E164-9EBA-41D7-A5A8-98F5C339DB53}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1E48E164-9EBA-41D7-A5A8-98F5C339DB53}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1E48E164-9EBA-41D7-A5A8-98F5C339DB53}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

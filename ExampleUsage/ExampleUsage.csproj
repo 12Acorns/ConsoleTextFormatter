@@ -10,7 +10,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ConsoleTextFormatterCore\Core.csproj" />
-    <ProjectReference Include="..\Visualization\Visualization.csproj" />
   </ItemGroup>
 
 </Project>
