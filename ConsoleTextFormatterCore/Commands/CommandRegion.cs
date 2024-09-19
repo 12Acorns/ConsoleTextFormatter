@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Linq;
-using System.Text;
 
 namespace NEG.CTF2.Core.Commands;
+
 internal readonly struct CommandRegion
 {
     public CommandRegion(ICommand _command, Range _segment)

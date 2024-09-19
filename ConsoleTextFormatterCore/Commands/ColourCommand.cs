@@ -4,7 +4,7 @@ namespace NEG.CTF2.Core.Commands;
 
 internal sealed class ColourCommand : ICommand
 {
-	private readonly Dictionary<ColourGround, Dictionary<string, string>> groundToPredefinedColourMapper = new()
+	private static readonly Dictionary<ColourGround, Dictionary<string, string>> groundToPredefinedColourMapper = new()
 	{
 		{ 
 			ColourGround.Foreground,  
@@ -39,7 +39,7 @@ internal sealed class ColourCommand : ICommand
 
 	/// <param name="_ground">Forground, or background</param>
 	/// <param name="_colour">Either a RGB value (R: x, Y: g, B: z) or fixed colour type (Red)</param>
-	public ColourCommand(string _ground, string _colour)
+	public ColourCommand(ReadOnlySpan<char> _ground, ReadOnlySpan<char> _colour)
 	{
 		Ground = _ground switch
 		{
@@ -47,18 +47,13 @@ internal sealed class ColourCommand : ICommand
 			"BG" => ColourGround.Background,
 			_ => throw new Exception($"Colour ground specified does not one of: [\"FG\", \"BG\"]")
 		};
-		Colour = _colour;
+		var _colourMapper = groundToPredefinedColourMapper[Ground];
+		if(!_colourMapper.TryGetValue(_colour.ToString(), out var _colourSequence))
+		{
+			throw new Exception($"Inputted colour '{_colourSequence}', is not a valid colour. Please enter a valid colour.");
+		}
+		EscapeSequence = _colourSequence;
 	}
 	public ColourGround Ground { get; }
-	public string Colour { get; }
-
-	public string GetUnderlyingConsoleValue()
-	{
-		var _colourMapper = groundToPredefinedColourMapper[Ground];
-		if(!_colourMapper.TryGetValue(Colour, out var _colour))
-		{
-			throw new Exception($"Inputted colour '{_colour}', is not a valid colour. Please enter a valid colour.");
-		}
-		return _colour;
-	}
+	public string EscapeSequence { get; }
 }
