@@ -1,7 +1,15 @@
 ﻿using NEG.CTF2.Core.Commands.Data;
+using System.Collections.Specialized;
 
 namespace NEG.CTF2.Core.Commands;
 
+// IMPORTANT:
+// In net 9.0 a new type 'StringKeyedDictionary' will be implemented
+// This allows ReadOnlySpan<char> dictionary lookups
+// In future, switch to net9 on full release
+// And refactor to support 'StringKeyedDictionary'
+// This is to allow for minimal allocations
+// Applies for 'Command Region' too
 internal sealed class ColourCommand : ICommand
 {
 	private static readonly Dictionary<ColourGround, Dictionary<string, int>> groundToPredefinedColourMapper = new()
