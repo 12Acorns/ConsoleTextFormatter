@@ -4,35 +4,35 @@ namespace NEG.CTF2.Core.Commands;
 
 internal sealed class ColourCommand : ICommand
 {
-	private static readonly Dictionary<ColourGround, Dictionary<string, string>> groundToPredefinedColourMapper = new()
+	private static readonly Dictionary<ColourGround, Dictionary<string, int>> groundToPredefinedColourMapper = new()
 	{
 		{ 
 			ColourGround.Foreground,  
 			new()
 			{ 
-				{ "Black", $"{ICommand.escapeSequencePrefix}30"},
-				{ "Red", $"{ICommand.escapeSequencePrefix}31"},
-				{ "Green", $"{ICommand.escapeSequencePrefix}32"},
-				{ "Yellow", $"{ICommand.escapeSequencePrefix}33"},
-				{ "Blue", $"{ICommand.escapeSequencePrefix}34"},
-				{ "Magenta", $"{ICommand.escapeSequencePrefix}35"},
-				{ "Cyan", $"{ICommand.escapeSequencePrefix}36"},
-				{ "Default", $"{ICommand.escapeSequencePrefix}39"},
+				{ "Black", 30 },
+				{ "Red", 31 },
+				{ "Green", 32 },
+				{ "Yellow", 33 },
+				{ "Blue", 34 },
+				{ "Magenta", 35 },
+				{ "Cyan", 36 },
+				{ "Default", 39 },
 			} 
 		},
 		{
 			ColourGround.Background,
 			new()
 			{
-				{ "Black", $"{ICommand.escapeSequencePrefix}40"},
-				{ "Red", $"{ICommand.escapeSequencePrefix}41"},
-				{ "Green", $"{ICommand.escapeSequencePrefix}42"},
-				{ "Yellow", $"{ICommand.escapeSequencePrefix}43"},
-				{ "Blue", $"{ICommand.escapeSequencePrefix}44"},
-				{ "Magenta", $"{ICommand.escapeSequencePrefix}45"},
-				{ "Cyan", $"{ICommand.escapeSequencePrefix}46"},
-				{ "White", $"{ICommand.escapeSequencePrefix}47"},
-				{ "Default", $"{ICommand.escapeSequencePrefix}49"},
+				{ "Black", 40 },
+				{ "Red", 41 },
+				{ "Green", 42 },
+				{ "Yellow", 43 },
+				{ "Blue", 44 },
+				{ "Magenta", 45 },
+				{ "Cyan", 46},
+				{ "White", 47 },
+				{ "Default", 49 },
 			}
 		}
 	};
@@ -50,9 +50,10 @@ internal sealed class ColourCommand : ICommand
 		var _colourMapper = groundToPredefinedColourMapper[Ground];
 		if(!_colourMapper.TryGetValue(_colour.ToString(), out var _colourSequence))
 		{
-			throw new Exception($"Inputted colour '{_colourSequence}', is not a valid colour. Please enter a valid colour.");
+			throw new Exception($"Inputted colour '{_colour}', is not a valid colour. " +
+				"Please enter a valid colour.");
 		}
-		EscapeSequence = _colourSequence;
+		EscapeSequence = ICommand.Format(_colourSequence);
 	}
 	public ColourGround Ground { get; }
 	public string EscapeSequence { get; }

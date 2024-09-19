@@ -6,13 +6,19 @@ internal sealed class Program
 {
 	private const string BASICTEXTTEST =
 		"""
-		[FG: Red, BG: Blue, Underline, Bold]
+		[FG: Red, Bold, No UnderLine]
 		Blah blah
 		""";
 	static void Main()
 	{
-		var _formatter = new TextFormatter(BASICTEXTTEST);
-		_formatter.GenerateFormat();
+		var _rules = new FormattingRules()
+		{
+			PreserveLineStructure = false,
+		};
+		var _formatter = new TextFormatter(BASICTEXTTEST, _rules);
+		var _text = _formatter.GenerateFormat();
+
+		Console.WriteLine(_text);
 
 		Console.ReadKey();
 	}
