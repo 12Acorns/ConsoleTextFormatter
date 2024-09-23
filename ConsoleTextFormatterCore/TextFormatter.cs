@@ -54,7 +54,7 @@ public sealed class TextFormatter
 		var _previousEndIndex = 0;
 		foreach(var _index in _indexes)
 		{
-			var _commandSeperators = GetCommandSeperatorIndexes(Text, _index, out int _commandEndIndex);
+			var _commandSeperators = GetCommandSeperatorIndexes(_textSpan, _index, out int _commandEndIndex);
 			var _regions = CreateCommandRegions(_commandSeperators, _textSpan, _index, _commandEndIndex);
 			var _commands = CreateContextualisedCommands(_textSpan, _regions);
 
@@ -126,7 +126,7 @@ public sealed class TextFormatter
 		var _previousEndIndex = 0;
 		foreach(var _index in _indexes)
 		{
-			var _commandSeperators = GetCommandSeperatorIndexes(Text, _index, out int _commandEndIndex);
+			var _commandSeperators = GetCommandSeperatorIndexes(_textSpan, _index, out int _commandEndIndex);
 
 			if(_index is 0)
 			{
