@@ -1,8 +1,10 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Collections;
 
 namespace NEG.CTF2.Core.Utility;
 
+[StructLayout(LayoutKind.Sequential)]
 internal ref struct ListSpan<TSource>
 {
 	/// <summary>
@@ -79,7 +81,7 @@ internal ref struct ListSpan<TSource>
 	}
 
 	public int Count => internalIndex - Start;
-	public int Start { get; private set; }
+	public int Start { get; }
 
 	private readonly Span<TSource> elementsSpan;
 	private int internalIndex;
@@ -117,6 +119,41 @@ internal ref struct ListSpan<TSource>
 		elementsSpan[_index] = default!;
 		removedIndexes.Add(_index);
 		return true;
+	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public ReadOnlySpan<TSource> AsSpan(ToArrayOption _option = ToArrayOption.TrimmedSpan)
+	{
+		switch(_option)
+		{
+			case ToArrayOption.FullSpan:
+				return elementsSpan;
+			case ToArrayOption.StartToEndIndex:
+				return elementsSpan.Slice(Start, Count);
+			case ToArrayOption.TrimmedSpan:
+				if(removedIndexes == null || removedIndexes.Count == 0)
+				{
+					goto case ToArrayOption.StartToEndIndex;
+				}
+
+				var _length = Count - removedIndexes.Count;
+				if(_length <= 0)
+				{
+					return [];
+				}
+				var _elements = new TSource[_length];
+				int _elementsIndex = 0;
+				for(int i = Start; i <= internalIndex; i++)
+				{
+					if(removedIndexes.Contains(i))
+					{
+						continue;
+					}
+					_elements[_elementsIndex++] = elementsSpan[i];
+				}
+				return _elements;
+			default:
+				throw new ArgumentOutOfRangeException($"{_option} is not yet supported or invalid");
+		}
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public TSource[] ToArray(ToArrayOption _option = ToArrayOption.TrimmedSpan)

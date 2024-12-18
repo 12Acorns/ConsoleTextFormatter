@@ -1,4 +1,5 @@
 ﻿using NEG.CTF2.Core.Extensions;
+using System.Runtime.CompilerServices;
 
 namespace NEG.CTF2.Core.Commands;
 
@@ -19,6 +20,7 @@ internal interface ICommand
 
 	protected static string Format(string _sequence) =>
 		string.Format(ESCAPESEQUENCEPREFIX, _sequence);
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	protected static string Format(int _sequence)
 	{
 		var _intLength = _sequence.IntLength();

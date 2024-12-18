@@ -1,10 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using NEG.CTF2.Core.Extensions;
 using NEG.CTF2.Core.Commands;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
-using NEG.CTF2.Core.Extensions;
+using NEG.CTF2.Core.Utility;
+using System;
 
 namespace NEG.CTF2.Core;
 
@@ -47,13 +49,16 @@ public sealed class TextFormatter
 			return string.Empty;
 		}
 
-		var _commandIdentifierIndexes = _textSpan.IndexesOfAll('[');
+		var _commandIdentifierIndexes = _textSpan.IndexesOfAll('[', new ListSpan<int>(
+			_textSpan.Length * sizeof(int) > 1024
+			? new int[_textSpan.Length]
+			: stackalloc int[_textSpan.Length]));
 		if(_commandIdentifierIndexes.Length is 0)
 		{
 			return text;
 		}
 
-		var _builder = new StringBuilder(_textSpan.Length);
+		var _builder = new StringBuilder();
 		foreach(var _commandIdentifierIndex in _commandIdentifierIndexes)
 		{
 			var (_commandStartIndex, _commandEndIndex, _nextCommandStartOrEndOfStringIndex) =
@@ -69,14 +74,17 @@ public sealed class TextFormatter
 
 			_builder.Append(_textSpan[_sliceBeginIndex.._nextCommandStartOrEndOfStringIndex]);
 		}
-
 		return _builder.Append(RESETSEQUENCE).ToString();
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static ReadOnlySpan<CommandRegion> GetCommands(scoped ReadOnlySpan<char> _text, 
 		int _commandStartIndex, int _commandEndIndex, out int _totalLength)
 	{
-		var _seperators = _text.IndexesOfAll(',', _commandStartIndex, _commandEndIndex);
+		var _seperators = _text.IndexesOfAll(',', _commandStartIndex, _commandEndIndex, 
+			new ListSpan<int>(((_commandEndIndex - _commandStartIndex) * sizeof(int)) > 1024
+			? new int[_commandEndIndex - _commandStartIndex]
+			: stackalloc int[_commandEndIndex - _commandStartIndex]));
+
 		var _regions = new Range[_seperators.Length + 1];
 		int _previousRegionEndIndex = _commandStartIndex;
 		for(int i = 0; i < _seperators.Length; i++)
@@ -137,7 +145,10 @@ public sealed class TextFormatter
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	private string RemoveCommands(scoped ReadOnlySpan<char> _textSpan)
 	{
-		var _indexes = _textSpan.IndexesOfAll('[');
+		var _indexes = _textSpan.IndexesOfAll('[', new ListSpan<int>(
+			_textSpan.Length * sizeof(int) > 1024
+			? new int[_textSpan.Length]
+			: stackalloc int[_textSpan.Length]));
 		if(_indexes.Length is 0)
 		{
 			return text;
