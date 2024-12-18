@@ -1,13 +1,8 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Runtime.CompilerServices;
 using System.Collections;
-using System.Numerics;
-using System.Linq;
-using System.Text;
-using System;
-using System.Runtime.CompilerServices;
 
 namespace NEG.CTF2.Core.Utility;
+
 internal ref struct ListSpan<TSource>
 {
 	/// <summary>
@@ -89,15 +84,16 @@ internal ref struct ListSpan<TSource>
 	private readonly Span<TSource> elementsSpan;
 	private int internalIndex;
 
-	private readonly List<int> removedIndexes = new();
+	private List<int>? removedIndexes = null;
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryAdd(TSource _value)
 	{
 		if(internalIndex == elementsSpan.Length)
 		{
 			return false;
 		}
-		if(removedIndexes.Count > 0)
+		if(removedIndexes != null && removedIndexes.Count > 0)
 		{
 			elementsSpan[removedIndexes[0]] = _value;
 			removedIndexes.RemoveAt(0);
@@ -106,8 +102,14 @@ internal ref struct ListSpan<TSource>
 		elementsSpan[internalIndex++] = _value;
 		return true;
 	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryRemove(TSource _value)
 	{
+		if(removedIndexes == null)
+		{
+			removedIndexes = new();
+		}
+
 		if(!Contains(_value, out var _index))
 		{
 			return false;
@@ -116,6 +118,7 @@ internal ref struct ListSpan<TSource>
 		removedIndexes.Add(_index);
 		return true;
 	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public TSource[] ToArray(ToArrayOption _option = ToArrayOption.TrimmedSpan)
 	{
 		switch(_option)
@@ -125,7 +128,7 @@ internal ref struct ListSpan<TSource>
 			case ToArrayOption.StartToEndIndex:
 				return elementsSpan.Slice(Start, Count).ToArray();
 			case ToArrayOption.TrimmedSpan:
-				if(removedIndexes.Count == 0)
+				if(removedIndexes == null || removedIndexes.Count == 0)
 				{
 					goto case ToArrayOption.StartToEndIndex;
 				}
@@ -150,7 +153,7 @@ internal ref struct ListSpan<TSource>
 				throw new ArgumentOutOfRangeException($"{_option} is not yet supported or invalid");
 		}
 	}
-
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private bool Contains(TSource _value, out int _index)
 	{
 		if(_value == null)
@@ -222,6 +225,7 @@ internal ref struct ListSpan<TSource>
 
 	public TSource this[int _index]
 	{
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		get
 		{
 			if(internalIndex == elementsSpan.Length && _index >= internalIndex)
@@ -232,7 +236,7 @@ internal ref struct ListSpan<TSource>
 			{
 				throw new ArgumentOutOfRangeException(nameof(_index));
 			}
-			if(removedIndexes.Contains(_index))
+			if(removedIndexes != null && removedIndexes.Contains(_index))
 			{
 				throw new ArgumentOutOfRangeException(nameof(_index));
 			}

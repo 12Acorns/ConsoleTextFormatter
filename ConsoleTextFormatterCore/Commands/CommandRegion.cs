@@ -1,8 +1,9 @@
-﻿using System;
+﻿using NEG.CTF2.Core.Utility;
+using System;
 
 namespace NEG.CTF2.Core.Commands;
 
-internal readonly struct CommandRegion
+internal sealed class CommandRegion
 {
     public CommandRegion(ICommand _command, Range _segment)
     {

@@ -2,12 +2,12 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace NEG.CTF2.Core;
+namespace NEG.CTF2.Core.Extensions;
 
 internal static class SpanExtensions
 {
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static ReadOnlySpan<int> IndexesOfAll(this scoped ReadOnlySpan<char> _span, char _char, 
+	public static ReadOnlySpan<int> IndexesOfAll(this scoped ReadOnlySpan<char> _span, char _char,
 		int _from, int _to)
 	{
 		// if size (in bytes) of the array of possible int indexes is > 1024 (stack size) do a heap allocation instead, else
@@ -33,8 +33,8 @@ internal static class SpanExtensions
 		// if size (in bytes) of the array of possible int indexes is > 1024 (stack size) do a heap allocation instead, else
 		// do a stack allocation
 		var _listOfIndexes = new ListSpan<int>(
-			_span.Length * sizeof(int) > 1024 
-			? new int[_span.Length] 
+			_span.Length * sizeof(int) > 1024
+			? new int[_span.Length]
 			: stackalloc int[_span.Length]);
 
 		for(int i = 1; i < _span.Length; i += 2)
@@ -59,5 +59,5 @@ internal static class SpanExtensions
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static ReadOnlySpan<int> IndexesOfAll(this scoped Span<char> _span, char _char) =>
-		IndexesOfAll((ReadOnlySpan<char>)_span, _char);
+		((ReadOnlySpan<char>)_span).IndexesOfAll(_char);
 }

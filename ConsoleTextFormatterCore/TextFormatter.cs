@@ -4,6 +4,7 @@ using NEG.CTF2.Core.Commands;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
+using NEG.CTF2.Core.Extensions;
 
 namespace NEG.CTF2.Core;
 
@@ -39,7 +40,7 @@ public sealed class TextFormatter
 		var _textSpan = text.AsSpan();
 		if(!ConsoleStateManager.IsVirtual)
 		{
-			return RemoveCommands(in _textSpan);
+			return RemoveCommands(_textSpan);
 		}
 		if(_textSpan.IsWhiteSpace() || _textSpan.Length is 0)
 		{
@@ -57,8 +58,8 @@ public sealed class TextFormatter
 		{
 			var (_commandStartIndex, _commandEndIndex, _nextCommandStartOrEndOfStringIndex) =
 				GetCommandIndexex(_textSpan, _commandIdentifierIndex);
-			var _commands = GetCommands(_textSpan, _commandStartIndex + 1, _commandEndIndex - 1);
-			AppendCommands(_commands, in _builder);
+			var _commands = GetCommands(_textSpan, _commandStartIndex + 1, _commandEndIndex - 1, out var _totalLength);
+			AppendCommands(_commands, _builder, _totalLength);
 
 			var _sliceBeginIndex = _commandEndIndex + 1;
 			if(ContainsEscapeSequence(_textSpan, _commandEndIndex + 1, rules.CharCutoff))
@@ -66,13 +67,14 @@ public sealed class TextFormatter
 				_sliceBeginIndex += rules.CharCutoff;
 			}
 
-			_builder.Append(_textSpan[_sliceBeginIndex.._nextCommandStartOrEndOfStringIndex ]);
+			_builder.Append(_textSpan[_sliceBeginIndex.._nextCommandStartOrEndOfStringIndex]);
 		}
 
 		return _builder.Append(RESETSEQUENCE).ToString();
 	}
-	private static ReadOnlySpan<CommandRegion> GetCommands(scoped in ReadOnlySpan<char> _text, 
-		int _commandStartIndex, int _commandEndIndex)
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private static ReadOnlySpan<CommandRegion> GetCommands(scoped ReadOnlySpan<char> _text, 
+		int _commandStartIndex, int _commandEndIndex, out int _totalLength)
 	{
 		var _seperators = _text.IndexesOfAll(',', _commandStartIndex, _commandEndIndex);
 		var _regions = new Range[_seperators.Length + 1];
@@ -83,10 +85,11 @@ public sealed class TextFormatter
 			_previousRegionEndIndex = _seperators[i] + 1;
 		}
 		_regions[^1] = new Range(_previousRegionEndIndex, _commandEndIndex);
-		return CreateContextualisedCommands(in _text, _regions);
+		return CreateContextualisedCommands(_text, _regions, out _totalLength);
 	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static (int CommandStartIndex, int CommandEndIndex, int nextCommandStartOrStringEndIndex) GetCommandIndexex(
-		scoped in ReadOnlySpan<char> _text, int _commandStartIndex)
+		scoped ReadOnlySpan<char> _text, int _commandStartIndex)
 	{
 		if(!TryGetIndexOfFirst(_text, ']', out var _endCommandIndex, _commandStartIndex))
 		{
@@ -99,16 +102,16 @@ public sealed class TextFormatter
 		return (_commandStartIndex, _endCommandIndex, _nextCommandIndex);
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static bool ContainsEscapeSequence(scoped in ReadOnlySpan<char> _text, int _from, int _checkLength)
+	private static bool ContainsEscapeSequence(scoped ReadOnlySpan<char> _text, int _from, int _checkLength)
 	{
-		for(int i = 0; i < _checkLength; i++)
+		if(_from + _checkLength >= _text.Length)
 		{
-			var _actualIndex = i + _from;
-			if(_actualIndex >= _text.Length)
-			{
-				return false;
-			}
-			if(IsEscapeSequence(_text[_actualIndex]))
+			return false;
+		}
+
+		for(int i = _from; i < _from + _checkLength; i++)
+		{
+			if(IsEscapeSequence(_text[i]))
 			{
 				return true;
 			}
@@ -132,7 +135,7 @@ public sealed class TextFormatter
 		_ => false
 	};
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	private string RemoveCommands(scoped in ReadOnlySpan<char> _textSpan)
+	private string RemoveCommands(scoped ReadOnlySpan<char> _textSpan)
 	{
 		var _indexes = _textSpan.IndexesOfAll('[');
 		if(_indexes.Length is 0)
@@ -167,17 +170,28 @@ public sealed class TextFormatter
 		}
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private void AppendCommands(scoped in ReadOnlySpan<CommandRegion> _commands, in StringBuilder _builder)
+	private void AppendCommands(scoped ReadOnlySpan<CommandRegion> _commands, in StringBuilder _builder, int _totalLength)
 	{
-		foreach(var _command in _commands)
+		_builder.Append(string.Create(_totalLength, _commands, (_charSpan, _region) =>
 		{
-			_builder.Append(_command.Command?.EscapeSequence);
-		}
+			int _charIndex = 0;
+			int _regionIndex = 0;
+			while(_charIndex < _charSpan.Length)
+			{
+				var _currentSequence = _region[_regionIndex++].Command.EscapeSequence;
+				var _length = _currentSequence.Length;
+
+				var _slice = _charSpan.Slice(_charIndex, _length);
+				_currentSequence.AsSpan().CopyTo(_slice);
+				_charIndex += _currentSequence.Length;
+			}
+		}));
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static ReadOnlySpan<CommandRegion> CreateContextualisedCommands(scoped in ReadOnlySpan<char> _textSpan, 
-		scoped ReadOnlySpan<Range> _regions)
+	private static ReadOnlySpan<CommandRegion> CreateContextualisedCommands(scoped ReadOnlySpan<char> _textSpan, 
+		scoped ReadOnlySpan<Range> _regions, out int _totallength)
 	{
+		_totallength = 0;
 		var _commandRegions = new CommandRegion[_regions.Length];
 		for(int i = 0; i < _regions.Length; i++)
 		{
@@ -185,11 +199,13 @@ public sealed class TextFormatter
 			if(IsColourCommand(in _textSpan, _region, out var _ground, out var _colour))
 			{
 				_commandRegions[i] = new CommandRegion(new ColourCommand(_ground, _colour), _region);
+				_totallength += _commandRegions[i].Command.EscapeSequence.Length;
 				continue;
 			}
-			var (_sliceStart, _sliceEnd) = GetNonWhitespaceRange(in _textSpan, _region.Start.Value, _region.End.Value + 1);
+			var (_sliceStart, _sliceEnd) = GetNonWhitespaceRange(_textSpan, _region.Start.Value, _region.End.Value + 1);
 			var _slice = _textSpan[_sliceStart.._sliceEnd];
 			_commandRegions[i] = new CommandRegion(new FormatCommand(_slice), _region);
+			_totallength += _commandRegions[i].Command.EscapeSequence.Length;
 		}
 		return _commandRegions;
 	}
@@ -210,12 +226,12 @@ public sealed class TextFormatter
 			return false;
 		}
 		_ground = _scope[.._colourSeperatorIndex];
-		var (_colourStart, _) = GetNonWhitespaceRange(in _scope, _colourSeperatorIndex + 1, _scope.Length);
+		var (_colourStart, _) = GetNonWhitespaceRange(_scope, _colourSeperatorIndex + 1, _scope.Length);
 		_colour = _scope[_colourStart..];
 		return true;
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static (int _start, int _end) GetNonWhitespaceRange(scoped in ReadOnlySpan<char> _textSpan, 
+	private static (int _start, int _end) GetNonWhitespaceRange(scoped ReadOnlySpan<char> _textSpan, 
 		int _from, int _to)
 	{
 		var _scope = _textSpan[_from.._to];
@@ -245,7 +261,8 @@ public sealed class TextFormatter
 		}
 		return (_from, _to);
 	}
-	private static bool TryGetIndexOfFirst(scoped in ReadOnlySpan<char> _text, char _target, out int _index, int _from = 0)
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private static bool TryGetIndexOfFirst(scoped ReadOnlySpan<char> _text, char _target, out int _index, int _from = 0)
 	{
 		for(int i = _from; i < _text.Length; i++)
 		{
@@ -260,7 +277,7 @@ public sealed class TextFormatter
 	}
 	// TODO: Validation
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static void ThrowIfInvalidCommand(scoped in ReadOnlySpan<char> _text)
+	private static void ThrowIfInvalidCommand(scoped ReadOnlySpan<char> _text)
 	{
 
 	}
