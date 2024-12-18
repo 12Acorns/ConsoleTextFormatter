@@ -1,34 +1,31 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using NEG.CTF2.Core.Commands;
+using System.Diagnostics;
+using System.IO.Pipes;
+using System.Text;
 
 namespace NEG.CTF2.Core;
 
 public sealed class TextFormatter
 {
-	public TextFormatter(string _text, FormattingRules? _rules = default)
+	private const string RESETSEQUENCE = "\x1B[0m";
+
+	/// <exception cref="ArgumentNullException"></exception>
+	public TextFormatter(string _text, FormattingRules _rules)
 	{
-		text = _text;
 		if(_rules is null)
 		{
-			_rules = new();
+			throw new ArgumentNullException(nameof(_rules));
 		}
-		charCutoff = _rules.CharCutoff;
+
+		text = _text;
+		rules = _rules;
 	}
+	public TextFormatter(string _text) : this(_text, new FormattingRules()) { }
 
 	private readonly string text;
-	private readonly int charCutoff = 2;
-
-	public ReadOnlySpan<char> Text
-	{
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		get
-		{
-			return text;
-		}
-	}
+	private readonly FormattingRules rules;
 
 	/// <summary>
 	/// 
@@ -39,63 +36,84 @@ public sealed class TextFormatter
 	public string GenerateFormat()
 	{
 		Debug.Assert(ConsoleStateManager.IsVirtual);
-		var _textSpan = Text;
+		var _textSpan = text.AsSpan();
 		if(!ConsoleStateManager.IsVirtual)
 		{
 			return RemoveCommands(in _textSpan);
 		}
-		var _indexes = _textSpan.IndexesOfAll('[');
-		if(_indexes.Length is 0)
+		if(_textSpan.IsWhiteSpace() || _textSpan.Length is 0)
+		{
+			return string.Empty;
+		}
+
+		var _commandIdentifierIndexes = _textSpan.IndexesOfAll('[');
+		if(_commandIdentifierIndexes.Length is 0)
 		{
 			return text;
 		}
 
-		var _builder = new StringBuilder();
-		var _previousEndIndex = 0;
-		foreach(var _index in _indexes)
+		var _builder = new StringBuilder(_textSpan.Length);
+		foreach(var _commandIdentifierIndex in _commandIdentifierIndexes)
 		{
-			var _commandSeperators = GetCommandSeperatorIndexes(_textSpan, _index, out int _commandEndIndex);
-			var _regions = CreateCommandRegions(_commandSeperators, _textSpan, _index, _commandEndIndex);
-			var _commands = CreateContextualisedCommands(_textSpan, _regions);
+			var (_commandStartIndex, _commandEndIndex, _nextCommandStartOrEndOfStringIndex) =
+				GetCommandIndexex(_textSpan, _commandIdentifierIndex);
+			var _commands = GetCommands(_textSpan, _commandStartIndex + 1, _commandEndIndex - 1);
+			AppendCommands(_commands, in _builder);
 
-			if(_index is 0)
+			var _sliceBeginIndex = _commandEndIndex + 1;
+			if(ContainsEscapeSequence(_textSpan, _commandEndIndex + 1, rules.CharCutoff))
 			{
-				_previousEndIndex = _commandEndIndex + 1;
-				if(_previousEndIndex + 1 < _textSpan.Length)
-				{
-					if(IsEscapeSequence(_textSpan[_previousEndIndex]) || 
-					   IsEscapeSequence(_textSpan[_previousEndIndex + 1]))
-					{
-						_previousEndIndex += charCutoff;
-					}
-				}
+				_sliceBeginIndex += rules.CharCutoff;
+			}
 
-				AppendCommands(in _commands, in _builder);
-				continue;
-			}
-			var _slice = _textSpan[_previousEndIndex.._index];
-			_builder.Append(_slice);
-			AppendCommands(in _commands, in _builder);
-			_previousEndIndex = _commandEndIndex + 1;
-			if(_previousEndIndex + 1 < _textSpan.Length)
+			_builder.Append(_textSpan[_sliceBeginIndex.._nextCommandStartOrEndOfStringIndex ]);
+		}
+
+		return _builder.Append(RESETSEQUENCE).ToString();
+	}
+	private static ReadOnlySpan<CommandRegion> GetCommands(scoped in ReadOnlySpan<char> _text, 
+		int _commandStartIndex, int _commandEndIndex)
+	{
+		var _seperators = _text.IndexesOfAll(',', _commandStartIndex, _commandEndIndex);
+		var _regions = new Range[_seperators.Length + 1];
+		int _previousRegionEndIndex = _commandStartIndex;
+		for(int i = 0; i < _seperators.Length; i++)
+		{
+			_regions[i] = new Range(_previousRegionEndIndex, _seperators[i] - 1);
+			_previousRegionEndIndex = _seperators[i] + 1;
+		}
+		_regions[^1] = new Range(_previousRegionEndIndex, _commandEndIndex);
+		return CreateContextualisedCommands(in _text, _regions);
+	}
+	private static (int CommandStartIndex, int CommandEndIndex, int nextCommandStartOrStringEndIndex) GetCommandIndexex(
+		scoped in ReadOnlySpan<char> _text, int _commandStartIndex)
+	{
+		if(!TryGetIndexOfFirst(_text, ']', out var _endCommandIndex, _commandStartIndex))
+		{
+			throw new Exception("Invalid command entered, could not find command end character: ']'");
+		}
+		if(!TryGetIndexOfFirst(_text, '[', out var _nextCommandIndex, _commandStartIndex + 1))
+		{
+			return (_commandStartIndex, _endCommandIndex, _text.Length - 1);
+		}
+		return (_commandStartIndex, _endCommandIndex, _nextCommandIndex);
+	}
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private static bool ContainsEscapeSequence(scoped in ReadOnlySpan<char> _text, int _from, int _checkLength)
+	{
+		for(int i = 0; i < _checkLength; i++)
+		{
+			var _actualIndex = i + _from;
+			if(_actualIndex >= _text.Length)
 			{
-				if(IsEscapeSequence(_textSpan[_previousEndIndex]) ||
-				   IsEscapeSequence(_textSpan[_previousEndIndex + 1]))
-				{
-					_previousEndIndex += charCutoff;
-				}
+				return false;
+			}
+			if(IsEscapeSequence(_text[_actualIndex]))
+			{
+				return true;
 			}
 		}
-		if(_indexes.Length is > 1)
-		{
-			return _builder.Append("\x1B[0m").ToString();
-		}
-		// Remove from main scope to allow reuse of _slice
-		{
-			var _slice = _textSpan[_previousEndIndex..];
-			_builder.Append(_slice);
-			return _builder.Append("\x1B[0m").ToString();
-		}
+		return false;
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static bool IsEscapeSequence(char _char) => _char switch
@@ -126,16 +144,16 @@ public sealed class TextFormatter
 		var _previousEndIndex = 0;
 		foreach(var _index in _indexes)
 		{
-			var _commandSeperators = GetCommandSeperatorIndexes(_textSpan, _index, out int _commandEndIndex);
+			TryGetIndexOfFirst(_textSpan, ']', out var _commandEndIndex, _index);
 
 			if(_index is 0)
 			{
-				_previousEndIndex = _commandEndIndex + 1 + charCutoff;
+				_previousEndIndex = _commandEndIndex + 1 + rules.CharCutoff;
 				continue;
 			}
 			var _slice = _textSpan[_previousEndIndex.._index];
 			_builder.Append(_slice);
-			_previousEndIndex = _commandEndIndex + 1 + charCutoff;
+			_previousEndIndex = _commandEndIndex + 1 + rules.CharCutoff;
 		}
 		if(_indexes.Length is > 1)
 		{
@@ -169,7 +187,8 @@ public sealed class TextFormatter
 				_commandRegions[i] = new CommandRegion(new ColourCommand(_ground, _colour), _region);
 				continue;
 			}
-			var _slice = _textSpan[_region.Start.Value.._region.End.Value];
+			var (_sliceStart, _sliceEnd) = GetNonWhitespaceRange(in _textSpan, _region.Start.Value, _region.End.Value + 1);
+			var _slice = _textSpan[_sliceStart.._sliceEnd];
 			_commandRegions[i] = new CommandRegion(new FormatCommand(_slice), _region);
 		}
 		return _commandRegions;
@@ -179,7 +198,8 @@ public sealed class TextFormatter
 		out ReadOnlySpan<char> _ground, out ReadOnlySpan<char> _colour)
 	{
 		var _start = _range.Start.Value;
-		var _end = _range.End.Value;
+		var _end = _range.End.Value + 1;
+		// end is exclusive, hence +1
 		var _scope = _textSpan[_start.._end];
 		var _colourSeperatorIndex = _scope.IndexOf(':');
 
@@ -193,47 +213,6 @@ public sealed class TextFormatter
 		var (_colourStart, _) = GetNonWhitespaceRange(in _scope, _colourSeperatorIndex + 1, _scope.Length);
 		_colour = _scope[_colourStart..];
 		return true;
-	}
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static ReadOnlySpan<Range> CreateCommandRegions(scoped ReadOnlySpan<int> _commandSeperatorIndexes, 
-		scoped in ReadOnlySpan<char> _textSpan, 
-		int _from,
-		int _to)
-	{
-		var _commandRegions = new Range[_commandSeperatorIndexes.Length + 1].AsSpan();
-
-		var _start = 1;
-		var _end = 0;
-		if(_commandSeperatorIndexes.Length is 0)
-		{
-			_end = _to;
-		}
-		else
-		{
-			_end = _commandSeperatorIndexes[0];
-		}
-
-		(_start, _end) = GetNonWhitespaceRange(_textSpan, _start, _end);
-		_commandRegions[0] = new Range(_start, _end);
-		if(_commandSeperatorIndexes.Length is 0)
-		{
-			return _commandRegions;
-		}
-
-		List<string> _tmp = new();
-		for(int i = 1; i < _commandSeperatorIndexes.Length; i++)
-		{
-			var _region = ReadOnlySpan<char>.Empty;
-			_start = _commandSeperatorIndexes[i - 1] + 1;
-			_end = _commandSeperatorIndexes[i];
-			(_start, _end) = GetNonWhitespaceRange(_textSpan, _start, _end);
-			_commandRegions[i] = new Range(_start, _end);
-		}
-		_start = _commandSeperatorIndexes[^1] + 1;
-		_end = _to;
-		(_start, _end) = GetNonWhitespaceRange(_textSpan, _start, _end);
-		_commandRegions[^1] = new Range(_start, _end);
-		return _commandRegions;
 	}
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static (int _start, int _end) GetNonWhitespaceRange(scoped in ReadOnlySpan<char> _textSpan, 
@@ -266,50 +245,23 @@ public sealed class TextFormatter
 		}
 		return (_from, _to);
 	}
+	private static bool TryGetIndexOfFirst(scoped in ReadOnlySpan<char> _text, char _target, out int _index, int _from = 0)
+	{
+		for(int i = _from; i < _text.Length; i++)
+		{
+			if(_text[i] == _target)
+			{
+				_index = i;
+				return true;
+			}
+		}
+		_index = -1;
+		return false;
+	}
 	// TODO: Validation
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static void ThrowIfInvalidCommand(scoped in ReadOnlySpan<char> _text)
 	{
 
-	}
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	private static ReadOnlySpan<int> GetCommandSeperatorIndexes(scoped in ReadOnlySpan<char> _text, int _from,
-		out int _to)
-	{
-		int _localIndex = _from + 1;
-		var _commandSeperatorIndexList = new List<int>();
-		while(_localIndex < _text.Length && _text[_localIndex] is not ']')
-		{
-			if(_text[_localIndex] is not ',')
-			{
-				_localIndex++;
-				continue;
-			}
-			_commandSeperatorIndexList.Add(_localIndex);
-			_localIndex++;
-		}
-		if(_localIndex == _text.Length - 1 && _text[_localIndex] is not ']')
-		{
-			throw new Exception($"{nameof(_text)} does not contain a valid command end char from the last declaration of the command." +
-				$"");
-		}
-		_to = _localIndex;
-		if(_commandSeperatorIndexList.Count > 0)
-		{
-			return CollectionsMarshal.AsSpan(_commandSeperatorIndexList);
-		}
-		if(_localIndex - _from == 1)
-		{
-			throw new Exception($"{nameof(text)} contains no recognised command decimator, " +
-				$"please use ',' as the command seperator");
-		}
-		// Is the command region empty?
-		// If so, throw
-		else if(_text.Slice(_from + 1, _localIndex - _from - 1).IsWhiteSpace())
-		{
-			throw new Exception($"{nameof(text)} contains no recognised command decimator, " +
-				$"please use ',' as the command seperator");
-		}
-		return CollectionsMarshal.AsSpan(_commandSeperatorIndexList);
 	}
 }

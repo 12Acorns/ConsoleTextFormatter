@@ -1,12 +1,26 @@
 using System.Runtime.InteropServices;
 using System;
 
-public static partial class ConsoleStateManager
+internal static partial class ConsoleStateManager
 {
 	/// <summary>
-	/// Indicates if virtual termianl processing if possible on current system;
+	/// Indicates if virtual termianl processing is supported on system
+	/// <para></para>
+	/// MUST USE BEFORE TRYING TO FORMAT AS TO PREVENT UNEXPECTED BEHAVIOUR
 	/// </summary>
-	public static bool IsVirtual { get; } = TryInitialise();
+	public static bool IsVirtual
+	{
+		get
+		{
+			if(!firstCall)
+			{
+				return isVirtual;
+			}
+			return isVirtual = TryInitialise();
+		}
+	}
+	private static bool isVirtual;
+	private static bool firstCall = true;
 
 	private const int STDOUTPUTHANDLE = -11;
 	private const uint ENABLEVIRTUALTERMINALPROCESSING = 4;
@@ -24,6 +38,7 @@ public static partial class ConsoleStateManager
 
 	private static bool TryInitialise()
 	{
+		firstCall = false;
 		if(!IsValidOperatingSystem())
 		{
 			return false;

@@ -1,5 +1,6 @@
 ﻿using NEG.CTF2.Core.Commands.Data;
 using System.Collections.Specialized;
+using System.Text;
 
 namespace NEG.CTF2.Core.Commands;
 
@@ -9,7 +10,7 @@ namespace NEG.CTF2.Core.Commands;
 // In future, switch to net9 on full release
 // And refactor to support 'StringKeyedDictionary'
 // This is to allow for minimal allocations
-// Applies for 'Command Region' too
+// Applies for 'FormatCommand' too
 internal sealed class ColourCommand : ICommand
 {
 	private static readonly Dictionary<ColourGround, Dictionary<string, int>> groundToPredefinedColourMapper = new()
@@ -47,7 +48,7 @@ internal sealed class ColourCommand : ICommand
 
 	/// <param name="_ground">Forground, or background</param>
 	/// <param name="_colour">Either a RGB value (R: x, Y: g, B: z) or fixed colour type (Red)</param>
-	public ColourCommand(ReadOnlySpan<char> _ground, ReadOnlySpan<char> _colour)
+	public ColourCommand(scoped ReadOnlySpan<char> _ground, scoped ReadOnlySpan<char> _colour)
 	{
 		Ground = _ground switch
 		{
@@ -59,10 +60,23 @@ internal sealed class ColourCommand : ICommand
 		if(!_colourMapper.TryGetValue(_colour.ToString(), out var _colourSequence))
 		{
 			throw new Exception($"Inputted colour '{_colour}', is not a valid colour. " +
-				"Please enter a valid colour.");
+				$"Perhaps you meant one of the following?\n{ShowBySimilarity(Ground, _colour)}");
 		}
 		EscapeSequence = ICommand.Format(_colourSequence);
 	}
 	public ColourGround Ground { get; }
 	public string EscapeSequence { get; }
+
+	private static string ShowBySimilarity(ColourGround _ground, scoped ReadOnlySpan<char> _invalidColour)
+	{
+		var _builder = new StringBuilder();
+		foreach(var _colour in groundToPredefinedColourMapper[_ground])
+		{
+			if(_invalidColour.CompareTo(_colour.Key, StringComparison.OrdinalIgnoreCase) == 0)
+			{
+				_builder.AppendLine($"-{_colour.Key}");
+			}
+		}
+		return _builder.ToString();
+	}
 }

@@ -15,5 +15,5 @@ internal interface ICommand
 	protected static string Format(string _sequence) =>
 		string.Format(escapeSequencePrefix, _sequence);
 	protected static string Format(int _sequence) =>
-	string.Format(escapeSequencePrefix, _sequence);
+		string.Format(escapeSequencePrefix, _sequence);
 }

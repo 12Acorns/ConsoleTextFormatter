@@ -6,20 +6,33 @@ internal sealed class Program
 {
 	private const string BASICTEXTTEST =
 		"""
-		[FG: Red, Bold, No UnderLine]
+		[FG: Red, Bold]
 		Blah blah
+
+		[BG: Blue]
+		SSS
 		""";
 	static void Main()
 	{
-		var _rules = new FormattingRules()
+		var _text = QuickFormat.Format(BASICTEXTTEST, new FormattingRules()
 		{
 			PreserveLineStructure = false,
-		};
-		var _formatter = new TextFormatter(BASICTEXTTEST, _rules);
-		var _text = _formatter.GenerateFormat();
+		});
 
-		Console.WriteLine(_text);
+		Console.WriteLine($"{QuickFormat.Format("[Bold, UnderLine]Original:")}\n{BASICTEXTTEST}\n");
+		Console.WriteLine($"{QuickFormat.Format("[Bold, UnderLine]Formatted:")}\n{_text}\n");
 
-		Console.ReadKey();
+		Console.WriteLine(
+			"""
+			Try writing your own formatted text!
+			For more info type 'format -h'
+			To do a format, type 'format "[TEXT HERE]"'
+
+			""");
+
+		var _ownFormat = Console.ReadLine();
+
+		Console.WriteLine();
+		Console.WriteLine(QuickFormat.Format(_ownFormat!));
 	}
 }
